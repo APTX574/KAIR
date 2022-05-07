@@ -5,7 +5,7 @@
 
   , "scale": 4       // broadcast to "netG" if SISR
   , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
-  , "sigma": [0, 50] // 15, 25, 50 for DnCNN | [0, 75] for FDnCNN and FFDNet TODO 未知
+  , "sigma": [0, 50] // 15, 25, 50 for DnCNN | [0, 75] for FDnCNN and FFDNet
   , "sigma_test": 0  // 15, 25, 50 for DnCNN, FDnCNN and FFDNet, 0 for SR
 
   , "merge_bn": false              // if no BN exists, set false
@@ -76,8 +76,8 @@
     , "F_lossfn_weight": 1
     , "F_feature_layer": 34  // 25 | [2,7,16,25,34]
     , "F_weights": 1.0       // 1.0 | [0.1,0.1,1.0,1.0,1.0]
-    , "F_use_input_norm": true
-    , "F_use_range_norm": false
+    , "F_use_input_norm": true // 在vgg中将获取的特征值转换到(x - mean) / std
+    , "F_use_range_norm": false // 在vgg中将获取的特征值转换到[-1,1]
 
     , "gan_type": "ragan"    // "gan" | "ragan" | "lsgan" | "wgan" | "softplusgan"
     , "D_lossfn_weight": 5e-3
@@ -108,8 +108,8 @@
     , "D_param_strict": true
     , "E_param_strict": true
 
-    , "checkpoint_test": 5000
+    , "checkpoint_test": 1
     , "checkpoint_save": 5000
-    , "checkpoint_print": 200
+    , "checkpoint_print": 1
   }
 }

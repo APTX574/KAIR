@@ -47,6 +47,10 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True):
 
 
 class SSIMLoss(torch.nn.Module):
+
+    """
+    # 亮度，对比度，结构三者计算相似度。
+    """
     def __init__(self, window_size=11, size_average=True):
         super(SSIMLoss, self).__init__()
         self.window_size = window_size

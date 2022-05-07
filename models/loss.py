@@ -4,7 +4,6 @@ import torchvision
 from torch.nn import functional as F
 from torch import autograd as autograd
 
-
 """
 Sequential(
       (0): Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -49,29 +48,33 @@ Sequential(
 
 
 # --------------------------------------------
-# Perceptual loss
+# Perceptual loss 用于感知损失的特征提取器，基于VGG
 # --------------------------------------------
 class VGGFeatureExtractor(nn.Module):
-    def __init__(self, feature_layer=[2,7,16,25,34], use_input_norm=True, use_range_norm=False):
+    def __init__(self, feature_layer=[2, 7, 16, 25, 34], use_input_norm=True, use_range_norm=False):
         super(VGGFeatureExtractor, self).__init__()
         '''
         use_input_norm: If True, x: [0, 1] --> (x - mean) / std
         use_range_norm: If True, x: [0, 1] --> x: [-1, 1]
         '''
+        # 获取预训练vgg19
         model = torchvision.models.vgg19(pretrained=True)
         self.use_input_norm = use_input_norm
         self.use_range_norm = use_range_norm
         if self.use_input_norm:
             mean = torch.Tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
             std = torch.Tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
+            # 将不需要训练的参数输入网络
             self.register_buffer('mean', mean)
             self.register_buffer('std', std)
         self.list_outputs = isinstance(feature_layer, list)
+        # 将vgg中feature_layer指定的特征提取层输入到features中
         if self.list_outputs:
             self.features = nn.Sequential()
             feature_layer = [-1] + feature_layer
-            for i in range(len(feature_layer)-1):
-                self.features.add_module('child'+str(i), nn.Sequential(*list(model.features.children())[(feature_layer[i]+1):(feature_layer[i+1]+1)]))
+            for i in range(len(feature_layer) - 1):
+                self.features.add_module('child' + str(i), nn.Sequential(
+                    *list(model.features.children())[(feature_layer[i] + 1):(feature_layer[i + 1] + 1)]))
         else:
             self.features = nn.Sequential(*list(model.features.children())[:(feature_layer + 1)])
 
@@ -100,9 +103,11 @@ class PerceptualLoss(nn.Module):
     """VGG Perceptual loss
     """
 
-    def __init__(self, feature_layer=[2,7,16,25,34], weights=[0.1,0.1,1.0,1.0,1.0], lossfn_type='l1', use_input_norm=True, use_range_norm=False):
+    def __init__(self, feature_layer=[2, 7, 16, 25, 34], weights=[0.1, 0.1, 1.0, 1.0, 1.0], lossfn_type='l1',
+                 use_input_norm=True, use_range_norm=False):
         super(PerceptualLoss, self).__init__()
-        self.vgg = VGGFeatureExtractor(feature_layer=feature_layer, use_input_norm=use_input_norm, use_range_norm=use_range_norm)
+        self.vgg = VGGFeatureExtractor(feature_layer=feature_layer, use_input_norm=use_input_norm,
+                                       use_range_norm=use_range_norm)
         self.lossfn_type = lossfn_type
         self.weights = weights
         if self.lossfn_type == 'l1':
@@ -119,8 +124,10 @@ class PerceptualLoss(nn.Module):
         Returns:
             Tensor: Forward results.
         """
+        # 将输入gt进行梯度分离，不计算梯度
         x_vgg, gt_vgg = self.vgg(x), self.vgg(gt.detach())
         loss = 0.0
+        # 累加损失
         if isinstance(x_vgg, list):
             n = len(x_vgg)
             for i in range(n):
@@ -128,6 +135,7 @@ class PerceptualLoss(nn.Module):
         else:
             loss += self.lossfn(x_vgg, gt_vgg.detach())
         return loss
+
 
 # --------------------------------------------
 # GAN loss: gan, ragan
@@ -217,7 +225,6 @@ class CharbonnierLoss(nn.Module):
         return loss
 
 
-
 def r1_penalty(real_pred, real_img):
     """R1 regularization for discriminator. The core idea is to
         penalize the gradient on real data alone: when the
@@ -243,7 +250,7 @@ def g_path_regularize(fake_img, latents, mean_path_length, decay=0.01):
     path_lengths = torch.sqrt(grad.pow(2).sum(2).mean(1))
 
     path_mean = mean_path_length + decay * (
-        path_lengths.mean() - mean_path_length)
+            path_lengths.mean() - mean_path_length)
 
     path_penalty = (path_lengths - path_mean).pow(2).mean()
 
@@ -280,7 +287,7 @@ def gradient_penalty_loss(discriminator, real_data, fake_data, weight=None):
     if weight is not None:
         gradients = gradients * weight
 
-    gradients_penalty = ((gradients.norm(2, dim=1) - 1)**2).mean()
+    gradients_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean()
     if weight is not None:
         gradients_penalty /= torch.mean(weight)
 

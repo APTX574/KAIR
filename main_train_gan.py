@@ -97,6 +97,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     # configure logger
     # ----------------------------------------
+    # 进行logger
     if opt['rank'] == 0:
         logger_name = 'train'
         utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name + '.log'))
@@ -106,6 +107,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     # seed
     # ----------------------------------------
+    # 设置统一的随机数种子
     seed = opt['train']['manual_seed']
     if seed is None:
         seed = random.randint(1, 10000)
