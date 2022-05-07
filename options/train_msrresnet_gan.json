@@ -76,8 +76,8 @@
     , "F_lossfn_weight": 1
     , "F_feature_layer": 34  // 25 | [2,7,16,25,34]
     , "F_weights": 1.0       // 1.0 | [0.1,0.1,1.0,1.0,1.0]
-    , "F_use_input_norm": true // 在vgg中将获取的特征值转换到(x - mean) / std
-    , "F_use_range_norm": false // 在vgg中将获取的特征值转换到[-1,1]
+    , "F_use_input_norm": true //
+    , "F_use_range_norm": false //
 
     , "gan_type": "ragan"    // "gan" | "ragan" | "lsgan" | "wgan" | "softplusgan"
     , "D_lossfn_weight": 5e-3

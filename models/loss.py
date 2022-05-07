@@ -138,7 +138,7 @@ class PerceptualLoss(nn.Module):
 
 
 # --------------------------------------------
-# GAN loss: gan, ragan
+# GAN loss: gan, ragan gan网络对抗损失
 # --------------------------------------------
 class GANLoss(nn.Module):
     def __init__(self, gan_type, real_label_val=1.0, fake_label_val=0.0):

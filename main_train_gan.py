@@ -37,6 +37,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     '''
 
+    global logger
     parser = argparse.ArgumentParser()
     parser.add_argument('--opt', type=str, default=json_path, help='Path to option JSON file.')
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
@@ -125,7 +126,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
 
     # ----------------------------------------
     # 1) create_dataset
-    # 2) creat_dataloader for train and test
+    # 2) creat_dataloader for train and test 创建dataloader
     # ----------------------------------------
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
@@ -164,9 +165,9 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # Step--3 (initialize model)
     # ----------------------------------------
     '''
-
+    # 加载模型
     model = define_Model(opt)
-
+    # 初始化模型
     model.init_train()
     if opt['rank'] == 0:
         logger.info(model.info_network())
@@ -189,16 +190,19 @@ def main(json_path='options/train_msrresnet_gan.json'):
             # -------------------------------
             # 1) update learning rate
             # -------------------------------
+            # 更新训练学习率
             model.update_learning_rate(current_step)
 
             # -------------------------------
             # 2) feed patch pairs
             # -------------------------------
+            # 导入数据，并将数据导入驱动
             model.feed_data(train_data)
 
             # -------------------------------
             # 3) optimize parameters
             # -------------------------------
+            # 进行正向传播和反向传播
             model.optimize_parameters(current_step)
 
             # -------------------------------

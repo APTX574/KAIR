@@ -170,9 +170,10 @@ class ModelGAN(ModelBase):
         self.D_init_iters = self.opt_train['D_init_iters'] if self.opt_train['D_init_iters'] else 0
 
     # ----------------------------------------
-    # define optimizer, G and D
+    # define optimizer, G and D 定义GD优化器
     # ----------------------------------------
     def define_optimizer(self):
+        # 对于G优化器，只优化G网络的
         G_optim_params = []
         for k, v in self.netG.named_parameters():
             if v.requires_grad:
@@ -184,7 +185,7 @@ class ModelGAN(ModelBase):
         self.D_optimizer = Adam(self.netD.parameters(), lr=self.opt_train['D_optimizer_lr'], weight_decay=0)
 
     # ----------------------------------------
-    # define scheduler, only "MultiStepLR"
+    # define scheduler, only "MultiStepLR" 优化学习率
     # ----------------------------------------
     def define_scheduler(self):
         self.schedulers.append(lr_scheduler.MultiStepLR(self.G_optimizer,
@@ -225,8 +226,9 @@ class ModelGAN(ModelBase):
         # optimize G
         # ------------------------------------
         # GAN网络的优化
-        # 1. 对对抗网络进行优化
+        # 1. 对生成网络进行优化
         # 将对抗网络的所有梯度关闭
+        global D_loss
         for p in self.netD.parameters():
             p.requires_grad = False
 
@@ -236,33 +238,40 @@ class ModelGAN(ModelBase):
         loss_G_total = 0
 
         if current_step % self.D_update_ratio == 0 and current_step > self.D_init_iters:  # updata D first
+            # 计算像素损失L1损失
             if self.opt_train['G_lossfn_weight'] > 0:
                 G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
                 loss_G_total += G_loss  # 1) pixel loss
+            # 计算感知损失 VGG指定层
             if self.opt_train['F_lossfn_weight'] > 0:
                 F_loss = self.F_lossfn_weight * self.F_lossfn(self.E, self.H)
                 loss_G_total += F_loss  # 2) VGG feature loss
-
+            # 计算GAN损失
             if self.opt['train']['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
                 pred_g_fake = self.netD(self.E)
                 D_loss = self.D_lossfn_weight * self.D_lossfn(pred_g_fake, True)
             elif self.opt['train']['gan_type'] == 'ragan':
+                # TODO 将真实图片进行梯度关闭和论文里不大一样,为什么关闭了真实图像的梯度计算
                 pred_d_real = self.netD(self.H).detach()
                 pred_g_fake = self.netD(self.E)
+                # 相对对抗损失
                 D_loss = self.D_lossfn_weight * (
                         self.D_lossfn(pred_d_real - torch.mean(pred_g_fake, 0, True), False) +
                         self.D_lossfn(pred_g_fake - torch.mean(pred_d_real, 0, True), True)) / 2
+            # 生成模型的总损失（G_loss+F_loss+D_loss）
             loss_G_total += D_loss  # 3) GAN loss
 
+            # 生成器梯度下降
             loss_G_total.backward()
             self.G_optimizer.step()
 
         # ------------------------------------
         # optimize D
         # ------------------------------------
+        # 将对抗网络梯度打开
         for p in self.netD.parameters():
             p.requires_grad = True
-
+        # 对抗网络优化器梯度清零
         self.D_optimizer.zero_grad()
 
         # In order to avoid the error in distributed training:
@@ -272,25 +281,33 @@ class ModelGAN(ModelBase):
         # we separate the backwards for real and fake, and also detach the
         # tensor for calculating mean.
         if self.opt_train['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
-            # real
+            # 对于普通的gan网络，真实图片real
+            # 将真实图片输入获得预测
             pred_d_real = self.netD(self.H)  # 1) real data
+            # 输入预测结果和1获得损失
             l_d_real = self.D_lossfn(pred_d_real, True)
+            # 进行反向传播
             l_d_real.backward()
             # fake
+            # 计算生成图片预测结果，需要对E进行梯度关闭，防止对G网络的优化
             pred_d_fake = self.netD(self.E.detach().clone())  # 2) fake data, detach to avoid BP to G
+            # 计算损失并进行反向传播
             l_d_fake = self.D_lossfn(pred_d_fake, False)
             l_d_fake.backward()
         elif self.opt_train['gan_type'] == 'ragan':
-            # real
+            # 对于相对对抗损失 real
+            # 关闭fake 的梯度计算，防止对G网络的反向传播
             pred_d_fake = self.netD(self.E).detach()  # 1) fake data, detach to avoid BP to G
             pred_d_real = self.netD(self.H)  # 2) real data
             l_d_real = 0.5 * self.D_lossfn(pred_d_real - torch.mean(pred_d_fake, 0, True), True)
             l_d_real.backward()
             # fake
+            # TODO 这个和之前的pre_d_fake好像是一样的不知道为啥要计算两次
+            # TODO 明白了，上面的是对fake关闭了梯度，下面的是对real关闭了梯度，detach()放在前后的意思是不一样的
             pred_d_fake = self.netD(self.E.detach())
             l_d_fake = 0.5 * self.D_lossfn(pred_d_fake - torch.mean(pred_d_real.detach(), 0, True), False)
             l_d_fake.backward()
-
+        # 下一步
         self.D_optimizer.step()
 
         # ------------------------------------
@@ -309,6 +326,7 @@ class ModelGAN(ModelBase):
         self.log_dict['D_fake'] = torch.mean(pred_d_fake.detach())
 
         if self.opt_train['E_decay'] > 0:
+            # 如果需要对E模型进行微调
             self.update_E(self.opt_train['E_decay'])
 
     # ----------------------------------------
