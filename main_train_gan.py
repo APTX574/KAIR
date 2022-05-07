@@ -18,7 +18,6 @@ from utils.utils_dist import get_dist_info, init_dist
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
 
-
 '''
 # --------------------------------------------
 # training code for GAN-based model, such as ESRGAN, DPSRGAN
@@ -32,7 +31,6 @@ from models.select_model import define_Model
 
 
 def main(json_path='options/train_msrresnet_gan.json'):
-
     '''
     # ----------------------------------------
     # Step--1 (prepare opt)
@@ -44,7 +42,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--dist', default=False)
-
+    # 获取json文件所有参数
     opt = option.parse(parser.parse_args().opt, is_train=True)
     opt['dist'] = parser.parse_args().dist
 
@@ -62,20 +60,25 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # update opt
     # ----------------------------------------
     # -->-->-->-->-->-->-->-->-->-->-->-->-->-
+    # 读取 存放模型的路径，获取到对于的最新的模型和模型路径
     init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
     init_iter_D, init_path_D = option.find_last_checkpoint(opt['path']['models'], net_type='D')
     init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
     opt['path']['pretrained_netG'] = init_path_G
     opt['path']['pretrained_netD'] = init_path_D
     opt['path']['pretrained_netE'] = init_path_E
-    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
-    init_iter_optimizerD, init_path_optimizerD = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerD')
+    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'],
+                                                                             net_type='optimizerG')
+    init_iter_optimizerD, init_path_optimizerD = option.find_last_checkpoint(opt['path']['models'],
+                                                                             net_type='optimizerD')
     opt['path']['pretrained_optimizerG'] = init_path_optimizerG
     opt['path']['pretrained_optimizerD'] = init_path_optimizerD
+    # 从最新的开始，我也不知道为什么要从最新的开始
     current_step = max(init_iter_G, init_iter_D, init_iter_E, init_iter_optimizerG, init_iter_optimizerD)
 
     # opt['path']['pretrained_netG'] = ''
     # current_step = 0
+    # TODO 目前不知道用处，只是获取了采样系数
     border = opt['scale']
     # --<--<--<--<--<--<--<--<--<--<--<--<--<-
 
@@ -88,6 +91,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     # return None for missing key
     # ----------------------------------------
+    # TODO 不知道用处，获取了新的参数?
     opt = option.dict_to_nonedict(opt)
 
     # ----------------------------------------
@@ -95,7 +99,7 @@ def main(json_path='options/train_msrresnet_gan.json'):
     # ----------------------------------------
     if opt['rank'] == 0:
         logger_name = 'train'
-        utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
+        utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name + '.log'))
         logger = logging.getLogger(logger_name)
         logger.info(option.dict2str(opt))
 
@@ -128,11 +132,12 @@ def main(json_path='options/train_msrresnet_gan.json'):
             if opt['rank'] == 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
             if opt['dist']:
-                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True, seed=seed)
+                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True,
+                                                   seed=seed)
                 train_loader = DataLoader(train_set,
-                                          batch_size=dataset_opt['dataloader_batch_size']//opt['num_gpu'],
+                                          batch_size=dataset_opt['dataloader_batch_size'] // opt['num_gpu'],
                                           shuffle=False,
-                                          num_workers=dataset_opt['dataloader_num_workers']//opt['num_gpu'],
+                                          num_workers=dataset_opt['dataloader_num_workers'] // opt['num_gpu'],
                                           drop_last=True,
                                           pin_memory=True,
                                           sampler=train_sampler)
@@ -199,7 +204,8 @@ def main(json_path='options/train_msrresnet_gan.json'):
             # -------------------------------
             if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
                 logs = model.current_log()  # such as loss
-                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step,
+                                                                          model.current_learning_rate())
                 for k, v in logs.items():  # merge log information into message
                     message += '{:s}: {:.3e} '.format(k, v)
                 logger.info(message)
@@ -252,7 +258,9 @@ def main(json_path='options/train_msrresnet_gan.json'):
                 avg_psnr = avg_psnr / idx
 
                 # testing log
-                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                logger.info(
+                    '<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+
 
 if __name__ == '__main__':
     main()

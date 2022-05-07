@@ -1,11 +1,11 @@
 {
-  "task": "msrresnet_gan" //  
+  "task": "msrresnet_gan" //
   , "model": "gan" // "gan"
-  , "gpu_ids": [0]
+  , "gpu_ids": "cpu"
 
   , "scale": 4       // broadcast to "netG" if SISR
   , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
-  , "sigma": [0, 50] // 15, 25, 50 for DnCNN | [0, 75] for FDnCNN and FFDNet
+  , "sigma": [0, 50] // 15, 25, 50 for DnCNN | [0, 75] for FDnCNN and FFDNet TODO 未知
   , "sigma_test": 0  // 15, 25, 50 for DnCNN, FDnCNN and FFDNet, 0 for SR
 
   , "merge_bn": false              // if no BN exists, set false
@@ -38,7 +38,7 @@
   }
 
   , "netG": {
-    "net_type": "msrresnet0"  // "dncnn" | "fdncnn" | "ffdnet" | "srmd" | "dpsr" | "msrresnet0" |  "msrresnet1" | "rrdb" 
+    "net_type": "msrresnet0"  // "dncnn" | "fdncnn" | "ffdnet" | "srmd" | "dpsr" | "msrresnet0" |  "msrresnet1" | "rrdb"
     , "in_nc": 3        // input channel number
     , "out_nc": 3       // ouput channel number
     , "nc": 64          // 96 for DPSR, 128 for SRMD, 64 for DnCNN and MSRResNet

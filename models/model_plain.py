@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
 from torch.optim import Adam
-
 from models.select_network import define_G
 from models.model_base import ModelBase
 from models.loss import CharbonnierLoss
@@ -15,12 +14,14 @@ from utils.utils_regularizers import regularizer_orth, regularizer_clip
 
 class ModelPlain(ModelBase):
     """Train with pixel loss"""
+
     def __init__(self, opt):
         super(ModelPlain, self).__init__(opt)
         # ------------------------------------
         # define network
         # ------------------------------------
-        self.opt_train = self.opt['train']    # training option
+        self.opt_train = self.opt['train']  # training option
+        # 获取生成模型,通过opt修改模型参数
         self.netG = define_G(opt)
         self.netG = self.model_to_device(self.netG)
         if self.opt_train['E_decay'] > 0:
@@ -37,27 +38,31 @@ class ModelPlain(ModelBase):
     # initialize training
     # ----------------------------------------
     def init_train(self):
-        self.load()                           # load model
-        self.netG.train()                     # set training mode,for BN
-        self.define_loss()                    # define loss
-        self.define_optimizer()               # define optimizer
-        self.load_optimizers()                # load optimizer
-        self.define_scheduler()               # define scheduler
-        self.log_dict = OrderedDict()         # log
+        self.load()  # load model
+        self.netG.train()  # set training mode,for BN
+        self.define_loss()  # define loss
+        self.define_optimizer()  # define optimizer
+        self.load_optimizers()  # load optimizer
+        self.define_scheduler()  # define scheduler 定义学习率的调整
+        self.log_dict = OrderedDict()  # log 日志字典
 
     # ----------------------------------------
     # load pre-trained G model
     # ----------------------------------------
     def load(self):
+        # 获取预习训练的模型参数路径
         load_path_G = self.opt['path']['pretrained_netG']
         if load_path_G is not None:
             print('Loading model for G [{:s}] ...'.format(load_path_G))
+            # 载入模型参数
             self.load_network(load_path_G, self.netG, strict=self.opt_train['G_param_strict'], param_key='params')
+        # 导入E模型参数如果需要 E的话
         load_path_E = self.opt['path']['pretrained_netE']
         if self.opt_train['E_decay'] > 0:
             if load_path_E is not None:
                 print('Loading model for E [{:s}] ...'.format(load_path_E))
-                self.load_network(load_path_E, self.netE, strict=self.opt_train['E_param_strict'], param_key='params_ema')
+                self.load_network(load_path_E, self.netE, strict=self.opt_train['E_param_strict'],
+                                  param_key='params_ema')
             else:
                 print('Copying model for E ...')
                 self.update_E(0)
@@ -66,8 +71,11 @@ class ModelPlain(ModelBase):
     # ----------------------------------------
     # load optimizer
     # ----------------------------------------
+    # 载入优化器
     def load_optimizers(self):
+        # 获取优化器路径
         load_path_optimizerG = self.opt['path']['pretrained_optimizerG']
+        # 如果存在路径载入
         if load_path_optimizerG is not None and self.opt_train['G_optimizer_reuse']:
             print('Loading optimizerG [{:s}] ...'.format(load_path_optimizerG))
             self.load_optimizer(load_path_optimizerG, self.G_optimizer)
@@ -85,6 +93,7 @@ class ModelPlain(ModelBase):
     # ----------------------------------------
     # define loss
     # ----------------------------------------
+    # 设置损失函数
     def define_loss(self):
         G_lossfn_type = self.opt_train['G_lossfn_type']
         if G_lossfn_type == 'l1':
@@ -129,10 +138,11 @@ class ModelPlain(ModelBase):
                                                             ))
         elif self.opt_train['G_scheduler_type'] == 'CosineAnnealingWarmRestarts':
             self.schedulers.append(lr_scheduler.CosineAnnealingWarmRestarts(self.G_optimizer,
-                                                            self.opt_train['G_scheduler_periods'],
-                                                            self.opt_train['G_scheduler_restart_weights'],
-                                                            self.opt_train['G_scheduler_eta_min']
-                                                            ))
+                                                                            self.opt_train['G_scheduler_periods'],
+                                                                            self.opt_train[
+                                                                                'G_scheduler_restart_weights'],
+                                                                            self.opt_train['G_scheduler_eta_min']
+                                                                            ))
         else:
             raise NotImplementedError
 
@@ -159,42 +169,56 @@ class ModelPlain(ModelBase):
 
     # ----------------------------------------
     # update parameters and get loss
+    # 进行正向传播与反向传播
     # ----------------------------------------
     def optimize_parameters(self, current_step):
         self.G_optimizer.zero_grad()
+        # 正向传播获得self.E
         self.netG_forward()
+        # 获取损失
         G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
+        # 反向传播
         G_loss.backward()
 
         # ------------------------------------
         # clip_grad
         # ------------------------------------
         # `clip_grad_norm` helps prevent the exploding gradient problem.
+        # 进行梯度裁剪防止梯度爆炸
         G_optimizer_clipgrad = self.opt_train['G_optimizer_clipgrad'] if self.opt_train['G_optimizer_clipgrad'] else 0
         if G_optimizer_clipgrad > 0:
-            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=self.opt_train['G_optimizer_clipgrad'], norm_type=2)
-
+            torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=self.opt_train['G_optimizer_clipgrad'],
+                                           norm_type=2)
+        # 下一次
         self.G_optimizer.step()
 
         # ------------------------------------
         # regularizer
         # ------------------------------------
-        G_regularizer_orthstep = self.opt_train['G_regularizer_orthstep'] if self.opt_train['G_regularizer_orthstep'] else 0
-        if G_regularizer_orthstep > 0 and current_step % G_regularizer_orthstep == 0 and current_step % self.opt['train']['checkpoint_save'] != 0:
+        G_regularizer_orthstep = self.opt_train['G_regularizer_orthstep'] if self.opt_train[
+            'G_regularizer_orthstep'] else 0
+        # 如果需要正则化，且是正则化步，而且不是检查点进行真正化
+        if G_regularizer_orthstep > 0 and current_step % G_regularizer_orthstep == 0 and current_step % \
+                self.opt['train']['checkpoint_save'] != 0:
+            # 将正则化运用到网络中，regularizer_orth为自定义正则化
             self.netG.apply(regularizer_orth)
-        G_regularizer_clipstep = self.opt_train['G_regularizer_clipstep'] if self.opt_train['G_regularizer_clipstep'] else 0
-        if G_regularizer_clipstep > 0 and current_step % G_regularizer_clipstep == 0 and current_step % self.opt['train']['checkpoint_save'] != 0:
+        G_regularizer_clipstep = self.opt_train['G_regularizer_clipstep'] if self.opt_train[
+            'G_regularizer_clipstep'] else 0
+        if G_regularizer_clipstep > 0 and current_step % G_regularizer_clipstep == 0 and current_step % \
+                self.opt['train']['checkpoint_save'] != 0:
             self.netG.apply(regularizer_clip)
 
         # self.log_dict['G_loss'] = G_loss.item()/self.E.size()[0]  # if `reduction='sum'`
         self.log_dict['G_loss'] = G_loss.item()
 
+        #  TODO 更新E网络的啥东西，应该是使用网络G对网络E进行微调
         if self.opt_train['E_decay'] > 0:
             self.update_E(self.opt_train['E_decay'])
 
     # ----------------------------------------
     # test / inference
     # ----------------------------------------
+    # 测试模型运行
     def test(self):
         self.netG.eval()
         with torch.no_grad():

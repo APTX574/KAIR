@@ -18,7 +18,6 @@ from utils.utils_dist import get_dist_info, init_dist
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
 
-
 '''
 # --------------------------------------------
 # training code for MSRResNet
@@ -32,20 +31,21 @@ from models.select_model import define_Model
 
 
 def main(json_path='options/train_msrresnet_psnr.json'):
-
-    '''
+    """
     # ----------------------------------------
     # Step--1 (prepare opt)
     # ----------------------------------------
-    '''
-
+    """
+    #
+    global train_sampler, train_loader
     parser = argparse.ArgumentParser()
+
     parser.add_argument('--opt', type=str, default=json_path, help='Path to option JSON file.')
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--dist', default=False)
-
-    opt = option.parse(parser.parse_args().opt, is_train=True)
+    test = parser.parse_args().opt
+    opt = option.parse(test, is_train=True)
     opt['dist'] = parser.parse_args().dist
 
     # ----------------------------------------
@@ -66,7 +66,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
     opt['path']['pretrained_netG'] = init_path_G
     opt['path']['pretrained_netE'] = init_path_E
-    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
+    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'],
+                                                                             net_type='optimizerG')
     opt['path']['pretrained_optimizerG'] = init_path_optimizerG
     current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG)
 
@@ -77,6 +78,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # save opt to  a '../option.json' file
     # ----------------------------------------
     if opt['rank'] == 0:
+        # 保存当前配置
         option.save(opt)
 
     # ----------------------------------------
@@ -89,7 +91,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     if opt['rank'] == 0:
         logger_name = 'train'
-        utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
+        utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name + '.log'))
         logger = logging.getLogger(logger_name)
         logger.info(option.dict2str(opt))
 
@@ -111,22 +113,31 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     '''
 
+    '''
     # ----------------------------------------
     # 1) create_dataset
     # 2) creat_dataloader for train and test
     # ----------------------------------------
+    # 获取到训练和测试集参数
+    '''
+
     for phase, dataset_opt in opt['datasets'].items():
+        # 如果是训练数据集参数
         if phase == 'train':
+            #  调用define_Dataset方法传入方法参数获取训练集，用总训练集长度除以batch size获取训练集大小
             train_set = define_Dataset(dataset_opt)
             train_size = int(math.ceil(len(train_set) / dataset_opt['dataloader_batch_size']))
             if opt['rank'] == 0:
                 logger.info('Number of train images: {:,d}, iters: {:,d}'.format(len(train_set), train_size))
             if opt['dist']:
-                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True, seed=seed)
+                # 创建分布采样器 好似是用来多卡分布式计算的。
+                train_sampler = DistributedSampler(train_set, shuffle=dataset_opt['dataloader_shuffle'], drop_last=True,
+                                                   seed=seed)
+                # 创建数据加载器使用分布采样器
                 train_loader = DataLoader(train_set,
-                                          batch_size=dataset_opt['dataloader_batch_size']//opt['num_gpu'],
+                                          batch_size=dataset_opt['dataloader_batch_size'] // opt['num_gpu'],
                                           shuffle=False,
-                                          num_workers=dataset_opt['dataloader_num_workers']//opt['num_gpu'],
+                                          num_workers=dataset_opt['dataloader_num_workers'] // opt['num_gpu'],
                                           drop_last=True,
                                           pin_memory=True,
                                           sampler=train_sampler)
@@ -150,9 +161,11 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     # Step--3 (initialize model)
     # ----------------------------------------
+    # 初始化模型
     '''
-
+    # 获取opt中的模型
     model = define_Model(opt)
+    # 进行模型初始化
     model.init_train()
     if opt['rank'] == 0:
         logger.info(model.info_network())
@@ -162,6 +175,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # ----------------------------------------
     # Step--4 (main training)
     # ----------------------------------------
+    # 训练
     '''
 
     for epoch in range(1000000):  # keep running
@@ -171,7 +185,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         for i, train_data in enumerate(train_loader):
 
             current_step += 1
-
+            print(current_step)
             # -------------------------------
             # 1) update learning rate
             # -------------------------------
@@ -192,7 +206,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # -------------------------------
             if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
                 logs = model.current_log()  # such as loss
-                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step,
+                                                                          model.current_learning_rate())
                 for k, v in logs.items():  # merge log information into message
                     message += '{:s}: {:.3e} '.format(k, v)
                 logger.info(message)
@@ -202,13 +217,14 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # -------------------------------
             if current_step % opt['train']['checkpoint_save'] == 0 and opt['rank'] == 0:
                 logger.info('Saving the model.')
+                # 保存模型和优化器
                 model.save(current_step)
 
             # -------------------------------
             # 6) testing
             # -------------------------------
             if current_step % opt['train']['checkpoint_test'] == 0 and opt['rank'] == 0:
-
+                # 进行测试
                 avg_psnr = 0.0
                 idx = 0
 
@@ -245,7 +261,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                 avg_psnr = avg_psnr / idx
 
                 # testing log
-                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                logger.info(
+                    '<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+
 
 if __name__ == '__main__':
     main()

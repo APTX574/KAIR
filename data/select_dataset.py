@@ -10,12 +10,13 @@
 
 
 def define_Dataset(dataset_opt):
+    # 获取训练集类型 这里是sr 就是普通的下采样模式，可以填入不同的模型名使用不用的下采用模式
     dataset_type = dataset_opt['dataset_type'].lower()
     if dataset_type in ['l', 'low-quality', 'input-only']:
         from data.dataset_l import DatasetL as D
 
     # -----------------------------------------
-    # denoising
+    # denoising 降噪模型
     # -----------------------------------------
     elif dataset_type in ['dncnn', 'denoising']:
         from data.dataset_dncnn import DatasetDnCNN as D
@@ -30,7 +31,7 @@ def define_Dataset(dataset_opt):
         from data.dataset_fdncnn import DatasetFDnCNN as D
 
     # -----------------------------------------
-    # super-resolution
+    # super-resolution 超分模型
     # -----------------------------------------
     elif dataset_type in ['sr', 'super-resolution']:
         from data.dataset_sr import DatasetSR as D
