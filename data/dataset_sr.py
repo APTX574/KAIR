@@ -103,7 +103,7 @@ class DatasetSR(data.Dataset):
             # --------------------------------
             # augmentation - flip and/or rotate
             # --------------------------------
-            # 对L/H图片进行相同的随机操作，有七种随机的翻转操作，对
+            # 对L/H图片进行相同的随机操作，有七种随机的翻转操作，数据增强
             mode = random.randint(0, 7)
             img_L, img_H = util.augment_img(img_L, mode=mode), util.augment_img(img_H, mode=mode)
 

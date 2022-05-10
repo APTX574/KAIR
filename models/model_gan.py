@@ -9,6 +9,9 @@ from models.model_base import ModelBase
 from models.loss import GANLoss, PerceptualLoss
 from models.loss_ssim import SSIMLoss
 
+from torch.utils.tensorboard import SummaryWriter
+# 创建记录类
+
 
 class ModelGAN(ModelBase):
     """Train with pixel-VGG-GAN loss"""

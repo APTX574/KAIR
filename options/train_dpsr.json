@@ -1,7 +1,7 @@
 {
   "task": "dpsr"     //  root/task/images-models-options
   , "model": "plain" // "plain" | "plain2" if two inputs
-  , "gpu_ids": [0]
+  , "gpu_ids": "cpu"
 
   , "scale": 4       // broadcast to "netG" if SISR
   , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
